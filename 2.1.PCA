@@ -1,0 +1,110 @@
+########### 2.1. POPULATION STRUCTURE PCA ANALYSIS ###########
+
+### Code to conduct PCA analysis
+### Run in R or RStudio using the vcf-file prepared with the appropriate Filters.
+
+
+library(xlsx)
+library(vcfR)
+library(adegenet)
+library(poppr)
+
+setwd("C:/Users/User/Desktop/DemographicHistory_Beluga/")
+IDs <- read.xlsx("Metadata_Beluga.xlsx", sheetIndex = 1)
+IDs <- IDs[!IDs$order == "Na", ]
+
+# Read in data (all populations) 
+snps <- read.vcfR("140Beluga_QF_HWE_maf05_maxmaf95_thin.vcf")
+snps <- addID(snps, sep = "_")
+gl <- vcfR2genlight(snps)
+
+gl@pop <- as.factor(IDs$stock)
+
+toRemove <- is.na(glMean(gl, alleleAsUnit = FALSE)) 
+gl1 <- gl[, !toRemove]
+
+### calculate the PCA
+pca <- glPca(gl1, nf = 20, parallel = T, n.cores = 30)
+
+# PCA Loads
+var_frac <- pca$eig/sum(pca$eig)
+var_frac
+var_frac[1:3]
+
+#labels for plot
+var1 <- 100*var_frac[1]
+var1
+weight1 <- round(var1, digits = 2)
+weight1
+label1 <- sprintf("PC1 (%s)", weight1)
+label1
+
+var2 <- 100*var_frac[2]
+var2
+weight2 <- round(var2, digits = 2)
+weight2
+label2 <- sprintf("PC2 (%s)", weight2)
+label2
+
+var3 <- 100*var_frac[3]
+var3
+weight3 <- round(var3, digits = 2)
+weight3
+label3 <- sprintf("PC3 (%s)", weight3)
+label3
+
+var4 <- 100*var_frac[4]
+var4
+weight4 <- round(var4, digits = 2)
+weight4
+label4 <- sprintf("PC4 (%s)", weight4)
+label4
+
+var5 <- 100*var_frac[5]
+var5
+weight5 <- round(var5, digits = 2)
+weight5
+label5 <- sprintf("PC5 (%s)", weight5)
+label5
+
+var6 <- 100*var_frac[6]
+var6
+weight6 <- round(var6, digits = 2)
+weight6
+label6 <- sprintf("PC6 (%s)", weight6)
+label6
+
+
+signif(sum(var_frac[1:5]) * 100, 3)
+
+# plot pca
+cols <- rainbow(9)
+pca.scores <- as.data.frame(pca$scores)
+pca.scores$pop <- pop(gl1)
+pca.scores$samp <- IDs$ID
+pca.scores$location <- IDs$Site
+pca.scores$stock <- IDs$stock
+pca.scores$sex <- IDs$Sex_coverage
+
+
+#PC1 and PC2
+ggplot(pca.scores, aes(x = PC1, y = PC2, shape = sex)) +
+  # Plot all points except the specific one to be highlighted
+  geom_point(data = subset(pca.scores, samp != "SL_Lanse_au_Loup_4491"), 
+             aes(fill = stock), color = "black", size = 4, stroke = 0.5) +
+  
+  # Plot the specific point on top
+  geom_point(data = subset(pca.scores, samp == "SL_Lanse_au_Loup_4491"), 
+             aes(fill = stock), color = "black", size = 4, stroke = 0.5) +
+  geom_point(data = subset(pca.scores, samp == "CS_Pangnirtung_15"), 
+             aes(fill = stock), color = "black", size = 4, stroke = 0.5) +
+  
+  xlab(label1) + ylab(label2) +
+  #theme_minimal() +
+  scale_fill_manual(values = c("#339900", "gold", "#0099FF", "darkslategray3", "#ff99ff", "#CC79A7", "#ccff00", "#E69F00", "#004949", "blue")) + 
+  scale_color_manual(values = c("#339900", "gold", "#0099FF", "darkslategray3", "#ff99ff", "#CC79A7", "#ccff00", "#E69F00", "#004949", "blue")) + 
+  scale_shape_manual(values = c(21, 24)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  theme_bw() +
+  guides(fill = "none")
