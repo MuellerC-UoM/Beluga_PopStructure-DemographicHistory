@@ -2,6 +2,25 @@
 
 ### run with sbatch and add the name of the vcf file --> e.g. to remove the indels from a vcf file called "BelugaData.vcf" run:  sbatch indels.sh BelugaData
 
+
+### only keep scaffolds where we know the specific chromosome they belong to
+### Chrom.sh
+
+#!/bin/bash
+
+#SBATCH -J chrom       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o onlyChr.%A.out       # File to which STDOUT will be written
+#SBATCH -e onlyChr.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --chr S_20_00703_Chromosome17_scaffold_34 --chr S_20_00703_Chromosome20_scaffold_41 --chr S_20_00703_Chromosome9_scaffold_20 --chr S_20_00703_Chromosome21_scaffold_45 --chr S_20_00703_Chromosome20_scaffold_43 --chr S_20_00703_Chromosome21_scaffold_44 --chr S_20_00703_Chromosome17_scaffold_33 --chr S_20_00703_Chromosome9_scaffold_21 --chr S_20_00703_Chromosome10_scaffold_22 --chr S_20_00703_Chromosome2_scaffold_4 --chr S_20_00703_Chromosome18_scaffold_36 --chr S_20_00703_Chromosome5_scaffold_11 --chr S_20_00703_Chromosome16_scaffold_31 --chr S_20_00703_Chromosome1_scaffold_1 --chr S_20_00703_Chromosome8_scaffold_16 --chr S_20_00703_Chromosome19_scaffold_40 --chr S_20_00703_Chromosome8_scaffold_17 --chr S_20_00703_Chromosome13_scaffold_27 --chr S_20_00703_Chromosome7_scaffold_15 --chr S_20_00703_Chromosome15_scaffold_29 --chr S_20_00703_Chromosome3_scaffold_6 --chr S_20_00703_Chromosome18_scaffold_37 --chr S_20_00703_Chromosome2_scaffold_5 --chr S_20_00703_Chromosome18_scaffold_38 --chr S_20_00703_Chromosome15_scaffold_30 --chr S_20_00703_Chromosome13_scaffold_26 --chr S_20_00703_Chromosome6_scaffold_12 --chr S_20_00703_Chromosome1_scaffold_2 --chr S_20_00703_Chromosome19_scaffold_39 --chr S_20_00703_Chromosome20_scaffold_42 --chr S_20_00703_Chromosome16_scaffold_32 --chr S_20_00703_Chromosome17_scaffold_35 --chr S_20_00703_Chromosome10_scaffold_23 --chr S_20_00703_Chromosome6_scaffold_13 --chr S_20_00703_Chromosome4_scaffold_7 --chr S_20_00703_Chromosome5_scaffold_10 --chr S_20_00703_Chromosome1_scaffold_3 --chr S_20_00703_Chromosome9_scaffold_19 --chr S_20_00703_Chromosome14_scaffold_28 --chr S_20_00703_Chromosome11_scaffold_24 --chr S_20_00703_Chromosome12_scaffold_25 --chr S_20_00703_Chromosome7_scaffold_14 --chr S_20_00703_Chromosome8_scaffold_18 --chr S_20_00703_Chromosome21_scaffold_46 --stdout --recode --recode-INFO-all > $1_onlyChr.vcf
+
+
 ### get p-value for Hardy-Weinberg equalibrium for every site
 ### hwe-p-all.sh
 
@@ -18,3 +37,56 @@
 module load vcftools/0.1.16
 
 vcftools --gzvcf $1.vcf --hardy
+
+
+### produces file out.hwe
+### use in R to analyse
+
+data <- read.table("out.hwe", header = TRUE)
+
+hist(data$P_HWE)
+
+split <- data.frame(do.call('rbind', strsplit(as.character(data$OBS.HOM1.HET.HOM2.),'/',fixed=TRUE)))
+
+part <-data[,1:2]
+ready <-cbind(part,split)
+
+names(ready)<-c("chr","pos","homo1","het","homo2")
+ready$homo1<-as.numeric(as.character(ready$homo1))
+ready$homo2<-as.numeric(as.character(ready$homo2))
+ready$het<-as.numeric(as.character(ready$het))
+ready$obs_het<-0
+
+for (i in nrow(ready)){
+  ready$obs_het<-ready$het/(ready$homo1+ready$het+ready$homo2)
+}
+
+hist(ready$obs_het,breaks=60)
+### provides a plot that shows distribution --> shows at what level a good cut-off would be --> in this case, 0.6
+
+na<-subset(ready,ready$obs_het=="NaN")
+het<-subset(ready,ready$obs_het>=0.6)
+remove<-rbind(na,het)
+remove_2col<-remove[,1:2]
+write.table(remove_2col,file="HWE_out.txt",sep="\t",quote=FALSE,row.names=F)
+write.table(remove_2col,file="HWE_out",sep="\t",quote=FALSE,row.names=F)
+
+### the tables can be imported back into bash --> these are the sites that can be removed
+### remove first line (CHROM POS) out of the imported files
+
+### remove the identified sites from the vcf file
+### rmHWE_all.sh
+
+#!/bin/bash
+
+#SBATCH -J rmHWE_all       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o hwe.%A.out       # File to which STDOUT will be written
+#SBATCH -e hwe.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --gzvcf $1.vcf --exclude-positions HWE_out --stdout --recode --recode-INFO-all > $1_HWE.vcf
