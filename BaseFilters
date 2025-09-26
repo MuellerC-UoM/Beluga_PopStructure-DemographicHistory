@@ -1,0 +1,128 @@
+########### BASE FILTERS ###########
+
+### run with sbatch and add the name of the vcf file --> e.g. to remove the indels from a vcf file called "BelugaData.vcf" run:  sbatch indels.sh BelugaData
+
+### Remove indels
+### indels.sh
+
+#!/bin/bash
+
+#SBATCH -J Indels       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-04:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o ind.%A.out       # File to which STDOUT will be written
+#SBATCH -e ind.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --remove-indels --stdout --recode --recode-INFO-all > $1_Indel.vcf
+
+
+### Only keep sites with flag "PASS"
+### indels.sh
+
+#!/bin/bash
+
+#SBATCH -J PASS       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-03:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o pass.%A.out       # File to which STDOUT will be written
+#SBATCH -e pass.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --remove-filtered-all --stdout --recode --recode-INFO-all > $1_PASS.vcf
+
+
+### Only keep sites with quality score > 50
+### q50.sh
+
+#!/bin/bash
+
+#SBATCH -J Quality50       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o q50.%A.out       # File to which STDOUT will be written
+#SBATCH -e q50.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --minQ 50 --stdout --recode --recode-INFO-all > $1_minQ50.vcf
+
+
+### remove sites with missigness >25%
+### mm25.sh
+
+#!/bin/bash
+
+#SBATCH -J missigness       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o mm25.%A.out       # File to which STDOUT will be written
+#SBATCH -e mm25.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --max-missing 0.75 --stdout --recode --recode-INFO-all > $1_mm25.vcf
+
+
+### remove non-biallelic sites
+### biall.sh
+
+#!/bin/bash
+
+#SBATCH -J biallelic       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o bi.%A.out       # File to which STDOUT will be written
+#SBATCH -e bi.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --max-alleles 2 --min-alleles 2 --stdout --recode --recode-INFO-all > $1_biall.vcf
+
+
+### only keep scaffolds <100kbp and remove sex-chromosomes
+### biall.sh
+
+#!/bin/bash
+
+#SBATCH -J Scaffolds       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o 100kbp.%A.out       # File to which STDOUT will be written
+#SBATCH -e 100kbp.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --chr HiC_scaffold_1377 --chr HiC_scaffold_1596 --chr HiC_scaffold_1594 --chr HiC_scaffold_108 --chr HiC_scaffold_164 --chr HiC_scaffold_55 --chr HiC_scaffold_52 --chr HiC_scaffold_4352 --chr HiC_scaffold_163 --chr HiC_scaffold_162 --chr HiC_scaffold_1521 --chr HiC_scaffold_4353 --chr HiC_scaffold_161 --chr HiC_scaffold_1354 --chr HiC_scaffold_4338 --chr HiC_scaffold_1457 --chr HiC_scaffold_1184 --chr HiC_scaffold_160 --chr HiC_scaffold_1316 --chr HiC_scaffold_4357 --chr HiC_scaffold_159 --chr HiC_scaffold_4369 --chr S_20_00703_Chromosome17_scaffold_34 --chr S_20_00703_Chromosome20_scaffold_41 --chr HiC_scaffold_4359 --chr HiC_scaffold_59 --chr S_20_00703_Chromosome9_scaffold_20 --chr S_20_00703_Chromosome21_scaffold_45 --chr S_20_00703_Chromosome20_scaffold_43 --chr S_20_00703_Chromosome21_scaffold_44 --chr S_20_00703_Chromosome17_scaffold_33 --chr S_20_00703_Chromosome9_scaffold_21 --chr S_20_00703_Chromosome10_scaffold_22 --chr S_20_00703_Chromosome2_scaffold_4 --chr S_20_00703_Chromosome18_scaffold_36 --chr S_20_00703_Chromosome5_scaffold_11 --chr S_20_00703_Chromosome16_scaffold_31 --chr S_20_00703_Chromosome1_scaffold_1 --chr S_20_00703_Chromosome8_scaffold_16 --chr S_20_00703_Chromosome19_scaffold_40 --chr S_20_00703_Chromosome8_scaffold_17 --chr S_20_00703_Chromosome13_scaffold_27 --chr S_20_00703_Chromosome7_scaffold_15 --chr S_20_00703_Chromosome15_scaffold_29 --chr S_20_00703_Chromosome3_scaffold_6 --chr S_20_00703_Chromosome18_scaffold_37 --chr S_20_00703_Chromosome2_scaffold_5 --chr S_20_00703_Chromosome18_scaffold_38 --chr S_20_00703_Chromosome15_scaffold_30 --chr S_20_00703_Chromosome13_scaffold_26 --chr S_20_00703_Chromosome6_scaffold_12 --chr S_20_00703_Chromosome1_scaffold_2 --chr S_20_00703_Chromosome19_scaffold_39 --chr S_20_00703_Chromosome20_scaffold_42 --chr S_20_00703_Chromosome16_scaffold_32 --chr S_20_00703_Chromosome17_scaffold_35 --chr S_20_00703_Chromosome10_scaffold_23 --chr S_20_00703_Chromosome6_scaffold_13 --chr S_20_00703_Chromosome4_scaffold_7 --chr S_20_00703_Chromosome5_scaffold_10 --chr S_20_00703_Chromosome1_scaffold_3 --chr S_20_00703_Chromosome9_scaffold_19 --chr S_20_00703_Chromosome14_scaffold_28 --chr S_20_00703_Chromosome11_scaffold_24 --chr S_20_00703_Chromosome12_scaffold_25 --chr S_20_00703_Chromosome7_scaffold_14 --chr S_20_00703_Chromosome8_scaffold_18 --chr S_20_00703_Chromosome21_scaffold_46 --stdout --recode --recode-INFO-all > $1_chr100kbp.vcf
+
+
+### Remove close kin individuals (pi-hat>0.4)
+### rmKin.sh
+
+#!/bin/bash
+
+#SBATCH -J rmKin       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o rmK.%A.out       # File to which STDOUT will be written
+#SBATCH -e rmK.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --remove-indv EHB_Kuujjuarapik_4594 --remove-indv JB_Bear_Islands_1029 --remove-indv JB_Pointe_de_Repentigny_2340 --remove-indv SL_Le_Bic_4287 --remove-indv SL_NA_55 --remove-indv SL_Sainte_Flavie_5792 --stdout --recode --recode-INFO-all > $1_noKin.vcf
