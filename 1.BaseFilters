@@ -1,4 +1,4 @@
-########### BASE FILTERS ###########
+########### 1. BASE FILTERS ###########
 
 ### run with sbatch and add the name of the vcf file --> e.g. to remove the indels from a vcf file called "BelugaData.vcf" run:  sbatch indels.sh BelugaData
 
