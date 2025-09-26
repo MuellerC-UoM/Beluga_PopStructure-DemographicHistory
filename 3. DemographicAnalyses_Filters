@@ -1,0 +1,20 @@
+########### 3. DEMOGRAPHIC ANALYSES FILTERS ###########
+
+### run with sbatch and add the name of the vcf file --> e.g. to remove the indels from a vcf file called "BelugaData.vcf" run:  sbatch indels.sh BelugaData
+
+### get p-value for Hardy-Weinberg equalibrium for every site
+### hwe-p-all.sh
+
+#!/bin/bash
+
+#SBATCH -J hwe-p       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o hwep.%A.out       # File to which STDOUT will be written
+#SBATCH -e hwep.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --gzvcf $1.vcf --hardy
