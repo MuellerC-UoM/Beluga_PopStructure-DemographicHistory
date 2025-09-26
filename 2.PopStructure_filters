@@ -1,0 +1,109 @@
+########### 2. POPULATION STRUCTURE FILTERS ###########
+
+### run with sbatch and add the name of the vcf file --> e.g. to remove the indels from a vcf file called "BelugaData.vcf" run:  sbatch indels.sh BelugaData
+
+### get p-value for Hardy-Weinberg equalibrium for every site
+### hwe-p-all.sh
+
+#!/bin/bash
+
+#SBATCH -J hwe-p       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o hwep.%A.out       # File to which STDOUT will be written
+#SBATCH -e hwep.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --gzvcf $1.vcf --hardy
+
+
+### produces file out.hwe
+### use in R to analyse
+
+data <- read.table("out.hwe", header = TRUE)
+
+hist(data$P_HWE)
+
+split <- data.frame(do.call('rbind', strsplit(as.character(data$OBS.HOM1.HET.HOM2.),'/',fixed=TRUE)))
+
+part <-data[,1:2]
+ready <-cbind(part,split)
+
+names(ready)<-c("chr","pos","homo1","het","homo2")
+ready$homo1<-as.numeric(as.character(ready$homo1))
+ready$homo2<-as.numeric(as.character(ready$homo2))
+ready$het<-as.numeric(as.character(ready$het))
+ready$obs_het<-0
+
+for (i in nrow(ready)){
+  ready$obs_het<-ready$het/(ready$homo1+ready$het+ready$homo2)
+}
+
+hist(ready$obs_het,breaks=60)
+### provides a plot that shows distribution --> shows at what level a good cut-off would be --> in this case, 0.6
+
+na<-subset(ready,ready$obs_het=="NaN")
+het<-subset(ready,ready$obs_het>=0.6)
+remove<-rbind(na,het)
+remove_2col<-remove[,1:2]
+write.table(remove_2col,file="HWE_out.txt",sep="\t",quote=FALSE,row.names=F)
+write.table(remove_2col,file="HWE_out",sep="\t",quote=FALSE,row.names=F)
+
+### the tables can be imported back into bash --> these are the sites that can be removed
+### remove first line (CHROM POS) out of the imported files
+
+### remove the identified sites from the vcf file
+### rmHWE_all.sh
+
+#!/bin/bash
+
+#SBATCH -J rmHWE_all       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o hwe.%A.out       # File to which STDOUT will be written
+#SBATCH -e hwe.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --gzvcf $1.vcf --exclude-positions HWE_out --stdout --recode --recode-INFO-all > $1_HWE.vcf
+
+
+### Remove sites with frequency lower than 5%
+### maf05.sh
+
+#!/bin/bash
+
+#SBATCH -J maf05       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o maf05.%A.out       # File to which STDOUT will be written
+#SBATCH -e maf05.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --maf 0.05 --max-maf 0.95 --stdout --recode --recode-INFO-all > $1_maf05.vcf
+
+
+### Prune variants within 1000bp of each other
+### thin.sh
+
+#!/bin/bash
+
+#SBATCH -J thin       # Name for the job
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-02:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o thn.%A.out       # File to which STDOUT will be written
+#SBATCH -e thn.%A.err       # File to which STDERR will be written
+
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --thin 1000 --stdout --recode --recode-INFO-all > $1_thin.vcf
