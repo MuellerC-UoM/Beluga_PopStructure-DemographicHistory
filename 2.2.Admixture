@@ -1,0 +1,322 @@
+########### 2.2. POPULATION STRUCTURE ADMIXTRUE ANALYSIS ###########
+
+### Code to conduct an Admixture analysis
+### Run in R or RStudio using the vcf-file prepared with the appropriate Filters.
+
+### first indext the vcf file
+bgzip data.vcf
+tabix -p vcf data.vcf.gz
+
+### make chrom-map file
+
+bcftools view -H data.vcf.gz | cut -f 1 | uniq | awk '{print $0"\t"$0}' > chrom-map.txt
+
+### then use --plink function in vcftools
+vcftools --gzvcf data.vcf.gz --plink --chrom-map chrom-map.txt --out data
+
+### creates three files .log .map and .ped
+### copy .ped file into new folder (e.g. "admixture analyses")
+
+### work in separate screen --> next steps can take very long
+
+screen -S admixture
+
+### start separate job session
+### might take even more time, keep an eye on it
+
+salloc --ntasks=1 --cpus-per-task=1 --mem-per-cpu=4000M --time=23:59:00 --account=def-coling
+
+### start R session
+
+R
+
+### download LEA package
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("LEA")
+library(LEA)
+
+### read and convert .ped file
+
+ped2geno("data.ped")
+
+### this step reads file, but now with ending .geno, which will be used for the next step --> this step will take really long. Can be made shorter by reducing repetition or number of Ks. However, only reduce both as far as useful --> use PCA to get an idea of how many Ks the data probably needs
+
+### start analysis --> K determines for how many "ancesteral populations" it runs the analysis --> consider how many distinct populations you might have at absolut maximum
+project = NULL 
+project = snmf("data.geno", K = 1:7, entropy = TRUE, repetitions = 5, project = "new")
+
+### when this is done, should have a folder with all the runs
+
+###  plot cross-entropy criterion for all runs in the snmf project 
+CrossEntropy <- plot(project, col = "blue", pch = 19, cex = 1.2)
+
+save.image(file = "Admixture_Environment.RData")
+
+### now go into R on Desktop and make figures
+
+library(LEA)
+library(xlsx)
+library(plyr)
+
+project = load.snmfProject("140Beluga_QF_HWE_maf05_maxmaf95_thin.snmfProject")
+
+IDs <- read.xlsx("Metadata_Beluga.xlsx", sheetIndex = 1)
+IDs <- IDs[!IDs$order == "Na", ]
+
+CrossEntropy <- plot(project, col = "blue", pch = 19, cex = 1.2)
+
+###Plot with proper order
+
+#K2
+ce2 <- cross.entropy(project, K = 2)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce2)
+
+my.colors2 <- c("#0072B2", "#E69F00")
+
+barchart(project, K = 2, run = best, sort.by.Q = TRUE, border = NA, space = 0, col = my.colors2, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K2)")-> bp2
+bp2df <- data.frame(bp2)
+label2 <- join(bp2df, IDs, by = "order")
+#axis(1, at = 1:length(bp2$order), labels = label2$Stock, las = 3, cex.axis = .4)
+axis(1, at = 1:length(bp2$order), labels = label2$ID , las = 3, cex.axis = .4)
+
+#K3
+ce3 <- cross.entropy(project, K = 3)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce3)
+
+my.colors3 <- c("#0072B2", "#E69F00", "#CC79A7")
+
+barchart(project, K = 3, run = best, sort.by.Q = TRUE, border = NA, space = 0, col = my.colors3, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K3)")-> bp3
+bp3df <- data.frame(bp3)
+label3 <- join(bp3df, IDs, by = "order")
+#axis(1, at = 1:length(bp3$order), labels = bp3$order, las = 3, cex.axis = .4)
+axis(1, at = 1:length(bp3$order), labels = label3$ID, las = 3, cex.axis = .4)
+
+#K4
+ce4 <- cross.entropy(project, K = 4)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce4)
+
+my.colors4 <- c("#CC79A7", "#0072B2", "#F0E442", "#E69F00")
+
+barchart(project, K = 4, run = best, sort.by.Q = TRUE, border = NA, space = 0, col = my.colors4, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K4)")-> bp4
+bp4df <- data.frame(bp4)
+label4 <- join(bp4df, IDs, by = "order")
+#axis(1, at = 1:length(bp4$order), labels = bp4$order, las = 3, cex.axis = .4)
+axis(1, at = 1:length(bp4$order), labels = label4$ID, las = 3, cex.axis = .4)
+
+#K5
+ce5 <- cross.entropy(project, K = 5)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce5)
+
+my.colors5 <- c("#56B4E9", "#F0E442", "#E69F00", "#CC79A7", "#0072B2")
+
+barchart(project, K = 5, run = best, sort.by.Q = TRUE, border = NA, space = 0, col = my.colors5, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K5)")-> bp5
+bp5df <- data.frame(bp5)
+label5 <- join(bp5df, IDs, by = "order")
+#axis(1, at = 1:length(bp5$order), labels = bp5$order, las = 3, cex.axis = .4)
+axis(1, at = 1:length(bp5$order), labels = label5$ID, las = 3, cex.axis = .4)
+
+#K6
+ce6 <- cross.entropy(project, K = 6)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce6)
+
+my.colors6 <- c("#009E73", "#E69F00", "#56B4E9", "#CC79A7", "#F0E442", "#0072B2")
+my.colors6 <- c("#56B4E9", "#0072B2", "#009E73", "#E69F00", "#F0E442", "#CC79A7")
+
+
+barchart(project, K = 6, run = best, sort.by.Q = TRUE, border = NA, space = 0, col = my.colors6, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K6)")-> bp6
+#barchart(project, K = 6, run = best, border = NA, space = 0, col = my.colors6, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K6)")-> bp6
+bp6df <- data.frame(bp6)
+label6 <- join(bp6df, IDs, by = "order")
+#axis(1, at = 1:length(bp6$order), labels = bp6$order, las = 3, cex.axis = .4)
+axis(1, at = 1:length(bp6$order), labels = label6$ID, las = 3, cex.axis = .4)
+
+#K7
+ce7 <- cross.entropy(project, K = 7)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce7)
+
+my.colors7 <- c("#CC79A7", "lightblue", "#56B4E9", "#F0E442", "#0072B2", "#009E73", "#E69F00")
+my.colors7 <- c("#F0E442", "#009E73", "#E69F00", "#56B4E9", "#0072B2", "#CC79A7", "lightblue")
+
+barchart(project, K = 7, run = best, sort.by.Q = TRUE, border = NA, space = 0, col = my.colors7, xlab = "Individuals", ylab = "Ancestry proportions", main = "Ancestry matrix (K7)")-> bp7
+bp7df <- data.frame(bp7)
+label7 <- join(bp7df, IDs, by = "order")
+#axis(1, at = 1:length(bp7$order), labels = bp7$order, las = 3, cex.axis = .4)
+axis(1, at = 1:length(bp7$order), labels = label7$ID, las = 3, cex.axis = .4)
+
+
+###Plot with proper order
+#K2
+ce2 <- cross.entropy(project, K = 2)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce2)
+
+my.colors2 <- c("#0072B2", "#E69F00")
+
+# Extract the Q matrix
+Q_matrix <- Q(project, K = 2, run = best)  # Adjust 'K' and 'run' as needed
+
+# Define your custom order (e.g., order_vec is a vector of indices in the desired order)
+order_vec_K7 <- c(14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 8, 11, 5, 3, 1, 2, 4, 6, 7, 9, 10, 12, 87, 30, 31, 32, 42, 46, 41, 40, 29, 43, 51, 45, 93, 88, 90, 91, 53, 13, 50, 95, 52, 48, 54, 55, 94, 125, 47, 44, 56, 92, 49, 139, 130, 38, 123, 104, 124, 128, 140, 89, 133, 131, 74, 134, 72, 86, 73, 136, 84, 58, 34, 37, 59, 129, 71, 127, 61, 70, 62, 69, 64, 65, 68, 60, 63, 57, 126, 135, 36, 132, 137, 138, 33, 35, 39, 66, 67, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 117, 101, 96, 97, 98, 99, 100, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122)  # Example order
+
+# Reorder the Q matrix
+Q_matrix_order <- Q_matrix[order_vec_K7, ]
+
+# Create the bar plot
+barplot(t(Q_matrix_order), beside = FALSE, col = my.colors2, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "Proportions of V1 and V2", ylim = c(0, 1), space=0)
+
+# add labels
+# Step 1: Convert K6_Order to numeric for correct ordering
+IDs$K6_Order <- as.numeric(as.character(IDs$K6_Order))
+
+# Step 2: Extract and order the data according to K6_Order
+ordered_IDs <- IDs[order(IDs$K6_Order), c("ID", "K6_Order")]
+
+# Create the bar plot with no gap between bars
+barplot(t(Q_matrix_order), beside = FALSE, col = my.colors2, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "K2", ylim = c(0, 1), space = 0,
+        names.arg = ordered_IDs$ID, las = 2, cex.names = 0.4)  # Adding labels and setting them vertical
+
+
+#K3
+ce3 <- cross.entropy(project, K = 3)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce3)
+
+my.colors3 <- c("#0072B2", "#E69F00", "#CC79A7")
+
+# Extract the Q matrix
+Q_matrix3 <- Q(project, K = 3, run = best)  # Adjust 'K' and 'run' as needed
+
+# Define your custom order (e.g., order_vec is a vector of indices in the desired order)
+order_vec_K7 <- c(14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 8, 11, 5, 3, 1, 2, 4, 6, 7, 9, 10, 12, 87, 30, 31, 32, 42, 46, 41, 40, 29, 43, 51, 45, 93, 88, 90, 91, 53, 13, 50, 95, 52, 48, 54, 55, 94, 125, 47, 44, 56, 92, 49, 139, 130, 38, 123, 104, 124, 128, 140, 89, 133, 131, 74, 134, 72, 86, 73, 136, 84, 58, 34, 37, 59, 129, 71, 127, 61, 70, 62, 69, 64, 65, 68, 60, 63, 57, 126, 135, 36, 132, 137, 138, 33, 35, 39, 66, 67, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 117, 101, 96, 97, 98, 99, 100, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122)  # Example order
+
+# Reorder the Q matrix
+Q_matrix_order3 <- Q_matrix3[order_vec_K7, ]
+
+# Create the bar plot with no gap between bars
+barplot(t(Q_matrix_order3), beside = FALSE, col = my.colors3, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "K3", ylim = c(0, 1), space = 0,
+        names.arg = ordered_IDs$ID, las = 2, cex.names = 0.4)  # Adding labels and setting them vertical
+
+
+#K4
+ce4 <- cross.entropy(project, K = 4)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce4)
+
+my.colors4 <- c("#CC79A7", "#0072B2", "#F0E442", "#E69F00")
+
+# Extract the Q matrix
+Q_matrix4 <- Q(project, K = 4, run = best)  # Adjust 'K' and 'run' as needed
+
+# Define your custom order (e.g., order_vec is a vector of indices in the desired order)
+order_vec_K7 <- c(14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 8, 11, 5, 3, 1, 2, 4, 6, 7, 9, 10, 12, 87, 30, 31, 32, 42, 46, 41, 40, 29, 43, 51, 45, 93, 88, 90, 91, 53, 13, 50, 95, 52, 48, 54, 55, 94, 125, 47, 44, 56, 92, 49, 139, 130, 38, 123, 104, 124, 128, 140, 89, 133, 131, 74, 134, 72, 86, 73, 136, 84, 58, 34, 37, 59, 129, 71, 127, 61, 70, 62, 69, 64, 65, 68, 60, 63, 57, 126, 135, 36, 132, 137, 138, 33, 35, 39, 66, 67, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 117, 101, 96, 97, 98, 99, 100, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122)  # Example order
+
+# Reorder the Q matrix
+Q_matrix_order4 <- Q_matrix4[order_vec_K7, ]
+
+# Create the bar plot with no gap between bars
+barplot(t(Q_matrix_order4), beside = FALSE, col = my.colors4, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "K4", ylim = c(0, 1), space = 0,
+        names.arg = ordered_IDs$ID, las = 2, cex.names = 0.4)  # Adding labels and setting them vertical
+
+
+#K5
+ce5 <- cross.entropy(project, K = 5)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce5)
+
+my.colors5 <- c("#56B4E9", "#F0E442", "#E69F00", "#CC79A7", "#0072B2")
+
+# Extract the Q matrix
+Q_matrix5 <- Q(project, K = 5, run = best)  # Adjust 'K' and 'run' as needed
+
+# Define your custom order (e.g., order_vec is a vector of indices in the desired order)
+order_vec_K7 <- c(14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 8, 11, 5, 3, 1, 2, 4, 6, 7, 9, 10, 12, 87, 30, 31, 32, 42, 46, 41, 40, 29, 43, 51, 45, 93, 88, 90, 91, 53, 13, 50, 95, 52, 48, 54, 55, 94, 125, 47, 44, 56, 92, 49, 139, 130, 38, 123, 104, 124, 128, 140, 89, 133, 131, 74, 134, 72, 86, 73, 136, 84, 58, 34, 37, 59, 129, 71, 127, 61, 70, 62, 69, 64, 65, 68, 60, 63, 57, 126, 135, 36, 132, 137, 138, 33, 35, 39, 66, 67, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 117, 101, 96, 97, 98, 99, 100, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122)  # Example order
+
+# Reorder the Q matrix
+Q_matrix_order5 <- Q_matrix5[order_vec_K7, ]
+
+# Create the bar plot with no gap between bars
+barplot(t(Q_matrix_order5), beside = FALSE, col = my.colors5, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "K5", ylim = c(0, 1), space = 0,
+        names.arg = ordered_IDs$ID, las = 2, cex.names = 0.4)  # Adding labels and setting them vertical
+
+
+#K6
+ce6 <- cross.entropy(project, K = 6)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce6)
+
+my.colors6 <- c("#56B4E9", "#0072B2", "#009E73", "#E69F00", "#F0E442", "#CC79A7")
+
+# Extract the Q matrix
+Q_matrix6 <- Q(project, K = 6, run = best)  # Adjust 'K' and 'run' as needed
+
+# Define your custom order (e.g., order_vec is a vector of indices in the desired order)
+order_vec_K7 <- c(14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 8, 11, 5, 3, 1, 2, 4, 6, 7, 9, 10, 12, 87, 30, 31, 32, 42, 46, 41, 40, 29, 43, 51, 45, 93, 88, 90, 91, 53, 13, 50, 95, 52, 48, 54, 55, 94, 125, 47, 44, 56, 92, 49, 139, 130, 38, 123, 104, 124, 128, 140, 89, 133, 131, 74, 134, 72, 86, 73, 136, 84, 58, 34, 37, 59, 129, 71, 127, 61, 70, 62, 69, 64, 65, 68, 60, 63, 57, 126, 135, 36, 132, 137, 138, 33, 35, 39, 66, 67, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 117, 101, 96, 97, 98, 99, 100, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122)  # Example order
+
+# Reorder the Q matrix
+Q_matrix_order6 <- Q_matrix6[order_vec_K7, ]
+
+# Create the bar plot with no gap between bars
+barplot(t(Q_matrix_order6), beside = FALSE, col = my.colors6, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "K6", ylim = c(0, 1), space = 0,
+        names.arg = ordered_IDs$ID, las = 2, cex.names = 0.4)  # Adding labels and setting them vertical
+
+
+#K7
+ce7 <- cross.entropy(project, K = 7)
+
+# select the run with the lowest cross-entropy value 
+best <- which.min(ce7)
+
+my.colors7 <- c("#F0E442", "#009E73", "#E69F00", "#56B4E9", "#0072B2", "#CC79A7", "lightblue")
+
+# Extract the Q matrix
+Q_matrix7 <- Q(project, K = 7, run = best)  # Adjust 'K' and 'run' as needed
+
+# Define your custom order (e.g., order_vec is a vector of indices in the desired order)
+order_vec_K7 <- c(14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 8, 11, 5, 3, 1, 2, 4, 6, 7, 9, 10, 12, 87, 30, 31, 32, 42, 46, 41, 40, 29, 43, 51, 45, 93, 88, 90, 91, 53, 13, 50, 95, 52, 48, 54, 55, 94, 125, 47, 44, 56, 92, 49, 139, 130, 38, 123, 104, 124, 128, 140, 89, 133, 131, 74, 134, 72, 86, 73, 136, 84, 58, 34, 37, 59, 129, 71, 127, 61, 70, 62, 69, 64, 65, 68, 60, 63, 57, 126, 135, 36, 132, 137, 138, 33, 35, 39, 66, 67, 75, 76, 77, 78, 79, 80, 81, 82, 83, 85, 117, 101, 96, 97, 98, 99, 100, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121, 122)  # Example order
+
+# Reorder the Q matrix
+Q_matrix_order7 <- Q_matrix7[order_vec_K7, ]
+
+# add labels
+# Step 1: Convert K6_Order to numeric for correct ordering
+IDs$K7_Order <- as.numeric(as.character(IDs$K7_Order))
+
+# Step 2: Extract and order the data according to K6_Order
+ordered_ID7s <- IDs[order(IDs$K7_Order), c("ID", "K7_Order")]
+
+# Create the bar plot with no gap between bars
+barplot(t(Q_matrix_order7), beside = FALSE, col = my.colors7, border = NA, 
+        xlab = "Individuals", ylab = "Proportion", 
+        main = "K7", ylim = c(0, 1), space = 0,
+        names.arg = ordered_IDs$ID, las = 2, cex.names = 0.4)  # Adding labels and setting them vertical
