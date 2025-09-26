@@ -1,0 +1,194 @@
+########### 3.1. SMC++ ANALYSIS
+
+### You need a folder with the original vcf file (without anything filtered out) and the filtered vcf-file.
+### zip and index files
+bgzip data.vcf
+tabix -p vcf data.vcf.gz
+
+bgzip filtered_data.vcf
+tabix -p vcf filtered_data.vcf.gz
+
+### now make vcf of filtered out sites
+
+nano isec.sh
+
+#!/bin/bash
+
+#SBATCH -J Isec       # Name for the job (keep it short and informative)
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 4       # Use n cores
+#SBATCH -t 0-05:59       # Runtime in D-HH:MM
+#SBATCH --mem=4000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o isec.%A.out       # File to which STDOUT will be written
+#SBATCH -e isec.%A.err       # File to which STDERR will be written
+
+bcftools isec -p isec_filteredout data.vcf.gz filtered_data.vcf.gz
+
+### created folder isec_filteredout that contains a few files with numbers in title
+
+cp isec_filteredout/0000.vcf smcpp_removed_sites.vcf
+
+### making bed file for masking
+export PATH=$PATH:/~/programs/bedops/bin
+
+###  convert to vcf to bed
+switch-BEDOPS-binary-type --megarow
+​
+module load StdEnv/2020
+
+vcf2bed --do-not-sort --deletions < smcpp_removed_sites.vcf > bow_deletions.bed
+
+### creates bow_deletions.bed file
+
+nano bow_snps.sh
+
+#!/bin/bash
+
+#SBATCH -J BowSnps       # Name for the job (keep it short and informative)
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 8       # Use n cores
+#SBATCH -t 0-23:59       # Runtime in D-HH:MM
+#SBATCH --mem=11G    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o bw.%A.out       # File to which STDOUT will be written
+#SBATCH -e bw.%A.err       # File to which STDERR will be written
+#SBATCH --account=def-coling  # Who are are going to charge it to?
+
+vcf2bed --snvs < smcpp_removed_sites.vcf > bow_snps.bed
+
+
+### creates bow_snps.bed file
+
+
+###  merge bed files
+bedops --everything bow_{deletions,snps}.bed > smcpp_removed_sites.bed
+
+### sort the new file bed
+
+nano sort.sh
+
+#!/bin/bash
+
+#SBATCH -J SortBed       # Name for the job (keep it short and informative)
+#SBATCH -n 4       # Use n cores
+#SBATCH -t 0-08:00       # Runtime in D-HH:MM
+#SBATCH --mem-per-cpu=40G    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o sort.%A.out       # File to which STDOUT will be written
+#SBATCH -e sort.%A.err       # File to which STDERR will be written
+#SBATCH --account=def-coling  # Who are are going to charge it to?
+
+module load StdEnv/2020
+module load bedops/2.4.41
+
+switch-BEDOPS-binary-type --megarow
+
+sort-bed smcpp_removed_sites.bed > smcpp_removed_sites_sorted.bed
+
+### produced smcpp_removed_sites_sorted.bed of the same size as smcpp_removed_sites.bed
+
+###  zip & index new files
+bgzip smcpp_removed_sites_sorted.bed
+tabix -p bed smcpp_removed_sites_sorted.bed.gz
+
+### add contig length to filtered_data.vcf.gz
+
+module load bcftools/1.13
+
+nano ContLength.sh
+
+#!/bin/bash
+
+#SBATCH -J ContLenth       # Name for the job (keep it short and informative)
+#SBATCH -n 4       # Use n cores
+#SBATCH -t 0-08:00       # Runtime in D-HH:MM
+#SBATCH --mem-per-cpu=40G    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o cl.%A.out       # File to which STDOUT will be written
+#SBATCH -e cl.%A.err       # File to which STDERR will be written
+#SBATCH --account=def-coling  # Who are are going to charge it to?
+
+bcftools reheader -f GCF_002288925.2_ASM228892v3_genomic.fna.fai BelugaNoDups.filtered.min50kb.copy.vcf.gz -o BelugaNoDups.filtered.min50kb_wContLength.vcf.gz
+
+### This file and the smcpp_removed_sites_sorted.bed can now be used to run the SMC++ analysis.
+### make directory specifically for the analysis of each individual population and copy all necessary files into this folder:
+### smcpp_removed_sites_sorted.bed.gz
+### smcpp_removed_sites_sorted.bed.gz.tbi
+### filtered_data.vcf.gz
+### filtered_data.vcf.gz.tbi
+### from within the new folder, execute this code
+
+#!/bin/bash
+
+#SBATCH --time=6:00:00
+#SBATCH --account=def-coling
+#SBATCH --mail-type=ALL
+#SBATCH --mem=10GB
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --output=%x-%j.out
+#SBATCH --kill-on-invalid=yes
+#SBATCH -o smcpp.%A.out
+#SBATCH -e smcpp.%A.err
+#SBATCH --job-name=vcf2smc_run1
+
+mkdir masked_data_run_1group
+
+list=scaf_min50kb
+
+#running SMC++ with the samples corresponding to the population you want to analyse. Chose one of the individuals (indv.1) as distinguished lineage
+while read scaffold
+do
+#Pop
+smc++ vcf2smc -d indv.1 indv1 --mask smcpp_removed_sites_sorted.bed.gz filtered_data.vcf.gz masked_data_run_1group/POP.$scaffold.smc $scaffold POP:[string of all individual's IDs you want to analyse, divided by a single comma]
+
+
+done < $list
+
+### creates the an equal number of files as there are scffolds in the list.
+
+mkdir smc_out_timepoints/1group/
+
+### now run the timepoint analysis
+
+nano smcpp.sh
+
+#!/bin/bash
+#SBATCH --mail-user=mullerc@myumanitoba.ca
+#SBATCH --mail-type=ALL
+#SBATCH --time=08:00:00
+#SBATCH --mem=80000M
+#SBATCH --array=1-20
+#SBATCH -o est.%A.out
+#SBATCH -e est.%A.err
+#SBATCH --job-name=estimate_timepoints
+
+​
+# 20 array runs/iterations of smc++ estimate for a population (this script is for one population)
+# also remember to make the folders first (smc_out_timepoints, and a folder for each pop ID if running more later (here I used "1group"))
+​
+source ~/smcpp/bin/activate
+​
+mkdir ~/smc_out_timepoints/1group/run_${SLURM_ARRAY_TASK_ID}/
+​
+echo smc_out_timepoints/1group/run_${SLURM_ARRAY_TASK_ID}/
+​
+# Run smc++ estimate
+smc++ estimate 5.2e-10 -o ~/smc_out_timepoints/1group/run_${SLURM_ARRAY_TASK_ID}/ --regularization-penalty 4.0 --nonseg-cutoff 100000 --thinning 2000 --cores 4 --timepoints 10 10000 ~/scratch/masked_data_run_1group/EHA.*
+
+
+### creates 20 (as many as arrays defined on the top) folders, and in each folder a "model.final.json" file
+
+### create plot
+
+nano smcpp_plot.sh
+
+#!/bin/bash
+​
+​#SBATCH --mail-user=mullerc@myumanitoba.ca
+#SBATCH --mail-type=ALL
+#SBATCH --time=00:05:00
+#SBATCH --mem=4000M
+#SBATCH -o plot.%A.out
+#SBATCH -e plot.%A.err
+#SBATCH --job-name=smcpp_plot
+
+smc++ plot -c smc_CunninghamInlet_plot.pdf smc_out_timepoints/1group/run_*/model.final.json
+
