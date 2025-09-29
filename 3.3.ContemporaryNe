@@ -23,7 +23,7 @@ module load nixpkgs/16.09
 module load intel/2018.3
 module load vcftools/0.1.16
 
-vcftools --vcf $1.vcf --max-missing 1 --min-alleles 2 --max-alleles 2 --maf 0.05 --stdout --recode --recode-INFO-all > $1_filtered.vcf
+vcftools --vcf $1.vcf --max-missing 1 --min-alleles 2 --max-alleles 2 --maf 0.1 --stdout --recode --recode-INFO-all > $1_filtered.vcf
 
 ### Subsample random 10k sites for further steps.
 
