@@ -1,0 +1,48 @@
+########## 3.2. GONE ##############
+
+# Use vcf file filtered for Demographic analysis
+# Use the vcftools --indv or --remove-indv to create a vcf file (Pop.vcf) that only contains individuals belonging to the corresponding genetic population.
+# Then filter again to remove any missing data and make sure that this file only has biallelic sites.
+
+nano NeFilters.sh
+
+#!/bin/bash
+
+#SBATCH -J Filter       # Name for the job (keep it short and informative)
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-11:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o fil.%A.out       # File to which STDOUT will be written
+#SBATCH -e fil.%A.err       # File to which STDERR will be written
+#SBATCH --account=def-coling  # Who are are going to charge it to?
+
+module load StdEnv/2020
+module load gcc/9.3.0
+module load nixpkgs/16.09
+module load intel/2018.3
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --max-missing 1 --min-alleles 2 --max-alleles 2 --maf 0.1 --stdout --recode --recode-INFO-all > $1_filtered.vcf
+
+### Download necessary programs and files from here:
+### https://github.com/esrud/GONE/tree/master
+### I used the "Linux" folder.
+### get: PROGRAMMES folder, INPUT_PARAMETER_FILE and script_GONE.sh
+### Make sure they are in the same folder as the Pop_filtered.vcf file
+
+### Set up the INPUT_PARAMETER_FILE according to this:
+PHASE	2	#Used for unphased data (0=pseudohaploids, 1=phased, 0=unphased)
+cMMb	1	#Average rate of recombination assumed in CentiMorgans per megabase
+DIST	1	#Type of genetic distance correction (0=no correction, 1=Haldane correction, 2=Kosambi correction)
+NGEN	2000	#Number of generations for which linkage data is obtained in bins
+NBIN	400	#Number of bins.
+MAF	0.0	#Minor allele frequency cut off, 0 is recommended.
+ZERO	1	#Determines how to deal with SNPs with zero value (0=remove, 1=allow)
+maxNCHROM	-99	#Maximum number of chromosomes used (-99 = all chromosomes are used)
+maxNSNP	20,000	#Maximum numbers of SNPs/chromosome used
+hc	0.05	#Maximum value of recombination rate being analysed.
+REPS	500	#Number of replicates to run per analysis
+threads	-99	#Number of threads used (-99 uses all possible processors)
+
+### Execute (sbatch) script_GONE.sh
