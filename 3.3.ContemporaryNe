@@ -1,0 +1,93 @@
+########## 3.3. CONTEMPORARY NE ##############
+
+# Use vcf file filtered for Demographic analysis
+# Use the vcftools --indv or --remove-indv to create a vcf file (Pop.vcf) that only contains individuals belonging to the corresponding genetic population.
+# Then filter again to remove any missing data and make sure that this file only has biallelic sites.
+
+nano NeFilters.sh
+
+#!/bin/bash
+
+#SBATCH -J Filter       # Name for the job (keep it short and informative)
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-11:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o fil.%A.out       # File to which STDOUT will be written
+#SBATCH -e fil.%A.err       # File to which STDERR will be written
+#SBATCH --account=def-coling  # Who are are going to charge it to?
+
+module load StdEnv/2020
+module load gcc/9.3.0
+module load nixpkgs/16.09
+module load intel/2018.3
+module load vcftools/0.1.16
+
+vcftools --vcf $1.vcf --max-missing 1 --min-alleles 2 --max-alleles 2 --maf 0.05 --stdout --recode --recode-INFO-all > $1_filtered.vcf
+
+### Subsample random 10k sites for further steps.
+
+nano 10k_prune.sh
+
+#!/bin/bash
+
+#SBATCH -J 10kPrune       # Name for the job (keep it short and informative)
+#SBATCH -N 1       # Number of nodes
+#SBATCH -n 1       # Use n cores
+#SBATCH -t 0-05:59       # Runtime in D-HH:MM
+#SBATCH --mem=2000    # Memory requested (megabites default, or specify G for Gb)
+#SBATCH -o pr.%A.out       # File to which STDOUT will be written
+#SBATCH -e pr.%A.err       # File to which STDERR will be written
+#SBATCH --account=def-coling  # Who are are going to charge it to?
+
+module load plink/1.9b_6.21-x86_64
+
+plink --thin-count 10000 --allow-extra-chr --make-bed --vcf $1_filtered_$2.vcf --set-missing-var-ids @:#\$1,\$2 --out $1_$2_ldNe_1 --double-id
+plink --thin-count 10000 --allow-extra-chr --make-bed --vcf $1_filtered_$2.vcf --set-missing-var-ids @:#\$1,\$2 --out $1_$2_ldNe_2 --double-id
+plink --thin-count 10000 --allow-extra-chr --make-bed --vcf $1_filtered_$2.vcf --set-missing-var-ids @:#\$1,\$2 --out $1_$2_ldNe_3 --double-id
+plink --thin-count 10000 --allow-extra-chr --make-bed --vcf $1_filtered_$2.vcf --set-missing-var-ids @:#\$1,\$2 --out $1_$2_ldNe_4 --double-id
+plink --thin-count 10000 --allow-extra-chr --make-bed --vcf $1_filtered_$2.vcf --set-missing-var-ids @:#\$1,\$2 --out $1_$2_ldNe_5 --double-id
+
+plink --bfile $1_$2_ldNe_1 --recode vcf --out $1_$2_ldNe_1 --allow-extra-chr
+plink --bfile $1_$2_ldNe_2 --recode vcf --out $1_$2_ldNe_2 --allow-extra-chr
+plink --bfile $1_$2_ldNe_3 --recode vcf --out $1_$2_ldNe_3 --allow-extra-chr
+plink --bfile $1_$2_ldNe_4 --recode vcf --out $1_$2_ldNe_4 --allow-extra-chr
+plink --bfile $1_$2_ldNe_5 --recode vcf --out $1_$2_ldNe_5 --allow-extra-chr
+
+### Create as many files as needed. Here shown are 5, but can be done for more or fewer if needed.
+### --> code can be adjusted to run it as a function, however make sure to not run all at once. Starting point at the same time creates the same underlying seed and therefore the same "random" subset of sites.
+
+### Move into R and use following code:
+
+
+remotes::install_github("zakrobinson/RLDNe")
+library(RLDNe)
+library(vcfR)
+devtools::install_github('ericarcher/strataG', build_vignettes = FALSE)
+library(strataG)
+
+# load vcf
+snpsR <- read.vcfR("Pop_filtered_ldNe_1.vcf", verbose = T)
+
+# convert vcf to genind
+snps_genind <- vcfR2genind(snpsR)
+#class(snps_genind)
+
+# convert genind to gtypes
+snps_gtypes <- genind2gtypes(snps_genind)
+#class(snps_gtypes)
+
+# convert gtypes to GENEPOP, this will automatically put new file into working directory
+genepopWrite(snps_gtypes, "Pop_filtered_ldNe_1")
+
+# try the LDNe! matingsystem=0 because not monogamous
+# set up parameters
+param_files <- NeV2_LDNe_create(
+  input_file = "CS.all.filtered.maf1.ldNe.1.genepop_loc_data.txt",
+  param_file = "CS.all.filtered.maf1.ldNe.1.genepop_Ne_params.txt",
+  NE_out_file = "CS.all.filtered.maf1.ldNe.1.genepop_Ne_out.txt",
+  matingsystem = 0,
+  crit_vals = c(0.1, 0.05, 0.01))
+
+# run LDNE, this will put output files directly into working directory
+run_LDNe(LDNe_params = param_files$param_file)
